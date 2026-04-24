@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HTTP Intrusion Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #060b14;
+    --panel:     #0c1420;
+    --border:    #1a2e45;
+    --accent:    #00d4ff;
+    --accent2:   #ff3c5c;
+    --yellow:    #f5c518;
+    --green:     #00ffaa;
+    --text:      #c8d8e8;
+    --muted:     #4a6070;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-ui:   'Rajdhani', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-ui); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px; z-index: 0; pointer-events: none;
+  }
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
+  header { text-align: center; margin-bottom: 40px; }
+  .logo-line { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+  .logo-icon { width: 44px; height: 44px; border: 2px solid var(--accent); border-radius: 8px; display: grid; place-items: center; box-shadow: 0 0 18px rgba(0,212,255,.3); }
+  .logo-icon svg { width: 24px; height: 24px; }
+  h1 { font-size: 2rem; font-weight: 700; letter-spacing: .12em; color: #fff; text-transform: uppercase; }
+  h1 span { color: var(--accent); }
+  .subtitle { font-family: var(--font-mono); font-size: .78rem; color: var(--muted); letter-spacing: .06em; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px; margin-bottom: 20px; }
+  .panel-title { font-size: .72rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .panel-title::before { content: ''; width: 14px; height: 2px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  input, select, textarea {
+    background: #08111d; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--font-mono); font-size: .88rem;
+    padding: 10px 14px; outline: none; transition: border .2s, box-shadow .2s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,.1); }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: #0c1420; }
+
+  .samples { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .sample-btn { font-family: var(--font-mono); font-size: .72rem; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all .2s; }
+  .sample-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sample-btn.attack { border-color: rgba(255,60,92,.4); color: var(--accent2); }
+  .sample-btn.attack:hover { background: rgba(255,60,92,.1); border-color: var(--accent2); }
+
+  .analyze-btn {
+    width: 100%; margin-top: 20px; padding: 14px;
+    background: linear-gradient(135deg, #004d6e, #002a40);
+    border: 1px solid var(--accent); border-radius: 8px; color: var(--accent);
+    font-family: var(--font-ui); font-size: 1rem; font-weight: 700;
+    letter-spacing: .2em; text-transform: uppercase; cursor: pointer;
+    transition: all .2s; box-shadow: 0 0 20px rgba(0,212,255,.15);
+  }
+  .analyze-btn:hover { background: linear-gradient(135deg, #005f88, #003350); box-shadow: 0 0 32px rgba(0,212,255,.35); }
+  .analyze-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── 3-tier verdict ── */
+  #result { display: none; }
+  .verdict { border-radius: 10px; padding: 22px 28px; display: flex; align-items: center; gap: 18px; margin-bottom: 20px; border: 1px solid; transition: all .3s; }
+  .verdict.normal     { border-color: var(--green);  background: rgba(0,255,170,.05); }
+  .verdict.suspicious { border-color: var(--yellow); background: rgba(245,197,24,.05); }
+  .verdict.attack     { border-color: var(--accent2);background: rgba(255,60,92,.06); }
+
+  .verdict-icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem; flex-shrink: 0; }
+  .verdict.normal     .verdict-icon { background: rgba(0,255,170,.12); box-shadow: 0 0 18px rgba(0,255,170,.2); }
+  .verdict.suspicious .verdict-icon { background: rgba(245,197,24,.12); box-shadow: 0 0 18px rgba(245,197,24,.2); }
+  .verdict.attack     .verdict-icon { background: rgba(255,60,92,.12);  box-shadow: 0 0 18px rgba(255,60,92,.2); }
+
+  .verdict-text h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: .06em; }
+  .verdict.normal     .verdict-text h2 { color: var(--green); }
+  .verdict.suspicious .verdict-text h2 { color: var(--yellow); }
+  .verdict.attack     .verdict-text h2 { color: var(--accent2); }
+  .verdict-text p { font-size: .85rem; color: var(--muted); font-family: var(--font-mono); margin-top: 4px; }
+
+  .tier-badge {
+    margin-left: auto; padding: 4px 14px; border-radius: 20px;
+    font-family: var(--font-mono); font-size: .75rem; font-weight: 700;
+    letter-spacing: .1em; flex-shrink: 0;
+  }
+  .verdict.normal     .tier-badge { background: rgba(0,255,170,.15); color: var(--green);  border: 1px solid rgba(0,255,170,.3); }
+  .verdict.suspicious .tier-badge { background: rgba(245,197,24,.15); color: var(--yellow); border: 1px solid rgba(245,197,24,.3); }
+  .verdict.attack     .tier-badge { background: rgba(255,60,92,.15);  color: var(--accent2);border: 1px solid rgba(255,60,92,.3); }
+
+  /* ── confidence meter ── */
+  .meter-wrap { margin-bottom: 18px; }
+  .meter-label { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .meter-track { height: 12px; background: #0a1520; border-radius: 6px; overflow: hidden; position: relative; }
+  .meter-fill { height: 100%; border-radius: 6px; transition: width .7s cubic-bezier(.4,0,.2,1); }
+  .meter-fill.normal     { background: linear-gradient(90deg, #00c47a, #00ffaa); }
+  .meter-fill.suspicious { background: linear-gradient(90deg, #b8960a, #f5c518); }
+  .meter-fill.attack     { background: linear-gradient(90deg, #c42040, #ff3c5c); }
+  .meter-zones { position: absolute; inset: 0; display: flex; }
+  .zone { height: 100%; }
+  .zone-safe { width: 55%; border-right: 1px dashed rgba(0,255,170,.3); }
+  .zone-warn { width: 25%; border-right: 1px dashed rgba(245,197,24,.3); }
+  .zone-danger { flex: 1; }
+  .zone-labels { display: flex; font-family: var(--font-mono); font-size: .65rem; color: var(--muted); margin-top: 4px; }
+  .zone-labels span:nth-child(1) { width: 55%; }
+  .zone-labels span:nth-child(2) { width: 25%; }
+  .zone-labels span:nth-child(3) { flex: 1; text-align: right; }
+
+  /* ── conf bars ── */
+  .conf-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .conf-label { font-family: var(--font-mono); font-size: .8rem; width: 110px; }
+  .conf-bar-wrap { flex: 1; height: 8px; background: #0a1520; border-radius: 4px; overflow: hidden; }
+  .conf-bar { height: 100%; border-radius: 4px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .conf-bar.normal { background: linear-gradient(90deg, #00c47a, #00ffaa); }
+  .conf-bar.attack { background: linear-gradient(90deg, #c42040, #ff3c5c); }
+  .conf-pct { font-family: var(--font-mono); font-size: .8rem; width: 50px; text-align: right; }
+
+  /* ── feature grid ── */
+  .feat-toggle { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-ui); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: all .2s; margin-bottom: 14px; }
+  .feat-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 0; overflow: hidden; transition: max-height .5s ease; }
+  .feat-grid.open { max-height: 1400px; }
+  .feat-item { background: #08111d; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .feat-name { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); }
+  .feat-val  { font-family: var(--font-mono); font-size: .82rem; color: var(--accent); font-weight: 600; }
+  .feat-item.hot { border-color: rgba(255,60,92,.4); }
+  .feat-item.hot .feat-val { color: var(--accent2); }
+
+  /* ── path display ── */
+  .path-row { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); margin-bottom: 16px; padding: 8px 12px; background: #08111d; border: 1px solid var(--border); border-radius: 6px; }
+  .path-row span { color: var(--accent); }
+
+  /* ── model note ── */
+  .model-note { background: rgba(245,197,24,.06); border: 1px solid rgba(245,197,24,.2); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-mono); font-size: .75rem; color: var(--yellow); line-height: 1.6; }
+
+  @keyframes scanline { 0% { transform: translateY(-100%); opacity:.6; } 100% { transform: translateY(100vh); opacity:0; } }
+  .scanline { position: fixed; left:0; right:0; height:2px; background: linear-gradient(transparent, var(--accent), transparent); pointer-events:none; z-index:9999; opacity:0; }
+  .scanline.active { animation: scanline 1.5s linear forwards; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  .fade-in { animation: fadeIn .4s ease forwards; }
+  @media (max-width:600px) { .form-grid { grid-template-columns:1fr; } .form-group.full { grid-column:1; } }
+</style>
+</head>
+<body>
+<div class="scanline" id="scanline"></div>
+<div class="page">
+
+  <header>
+    <div class="logo-line">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2">
+          <path d="M12 2L2 7v5c0 5.5 4 10.7 10 12 6-1.3 10-6.5 10-12V7z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <h1>HTTP <span>IDS</span></h1>
+    </div>
+    <div class="subtitle">CSIC 2010 &middot; Random Forest &middot; Intrusion Detection System</div>
+  </header>
+
+  <div class="model-note">
+    &#9432; This model is trained on the CSIC 2010 dataset (Spanish e-commerce app).
+    Use URLs starting with <span style="color:#00d4ff">http://localhost:8080/tienda1/</span> for best results.
+    Confidence below 80% is shown as SUSPICIOUS rather than ATTACK.
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">HTTP Request Analyzer</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Load Sample</div>
+      <div class="samples">
+        <button class="sample-btn" onclick="loadSample('normal_get')">Normal GET</button>
+        <button class="sample-btn" onclick="loadSample('normal_cart')">Normal Add-to-Cart</button>
+        <button class="sample-btn" onclick="loadSample('normal_login')">Normal Login</button>
+        <button class="sample-btn" onclick="loadSample('normal_checkout')">Normal Checkout</button>
+        <button class="sample-btn attack" onclick="loadSample('sql_get')">SQL Injection GET</button>
+        <button class="sample-btn attack" onclick="loadSample('sql_login')">SQL Injection POST</button>
+        <button class="sample-btn attack" onclick="loadSample('xss')">XSS Attack</button>
+        <button class="sample-btn attack" onclick="loadSample('cmd')">Command Injection</button>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Method</label>
+        <select id="method">
+          <option>GET</option><option>POST</option><option>PUT</option>
+          <option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Host</label>
+        <input id="host" type="text" placeholder="e.g. localhost:8080" />
+      </div>
+      <div class="form-group full">
+        <label>URL / Path</label>
+        <input id="url" type="text" placeholder="e.g. http://localhost:8080/tienda1/publico/anadir.jsp?id=1" />
+      </div>
+      <div class="form-group full">
+        <label>Request Body / Content</label>
+        <textarea id="content" placeholder="POST body, e.g. modo=entrar&login=user&pwd=pass%21"></textarea>
+      </div>
+    </div>
+    <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">Analyze Request</button>
+  </div>
+
+  <div id="result">
+    <!-- Verdict -->
+    <div class="verdict" id="verdict">
+      <div class="verdict-icon" id="verdictIcon"></div>
+      <div class="verdict-text">
+        <h2 id="verdictLabel"></h2>
+        <p  id="verdictSub"></p>
+      </div>
+      <div class="tier-badge" id="tierBadge"></div>
+    </div>
+
+    <!-- Confidence meter -->
+    <div class="panel fade-in">
+      <div class="panel-title">Attack Probability Meter</div>
+      <div class="path-row">Endpoint: <span id="pathDisplay">/</span></div>
+      <div class="meter-wrap">
+        <div class="meter-label">
+          <span>Attack Confidence</span>
+          <span id="meterPct">0%</span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-zones">
+            <div class="zone zone-safe"></div>
+            <div class="zone zone-warn"></div>
+            <div class="zone zone-danger"></div>
+          </div>
+          <div class="meter-fill" id="meterFill" style="width:0%"></div>
+        </div>
+        <div class="zone-labels">
+          <span>NORMAL (&lt;55%)</span>
+          <span>SUSPICIOUS</span>
+          <span>ATTACK (&gt;80%)</span>
+        </div>
+      </div>
+      <div id="confBars"></div>
+    </div>
+
+    <!-- Features -->
+    <div class="panel fade-in">
+      <div class="panel-title">Extracted Features</div>
+      <button class="feat-toggle" onclick="toggleFeatures()">Show / Hide Feature Values</button>
+      <div class="feat-grid" id="featGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var SAMPLES = {
+  normal_get: {
+    method: 'GET', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/anadir.jsp?id=2&nombre=Jamon&precio=85&cantidad=7',
+    content: ''
+  },
+  normal_cart: {
+    method: 'POST', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/anadir.jsp',
+    content: 'id=3&nombre=Vino+Rioja&precio=100&cantidad=5&B1=A%F1adir+al+carrito'
+  },
+  normal_login: {
+    method: 'POST', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/autenticar.jsp',
+    content: 'modo=entrar&login=juan&pwd=clave123%21&remember=off&B1=Entrar'
+  },
+  normal_checkout: {
+    method: 'POST', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/pagar.jsp',
+    content: 'modo=insertar&precio=2672&B1=Pasar+por+caja'
+  },
+  sql_get: {
+    method: 'GET', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/anadir.jsp?id=1 UNION SELECT username,password FROM users--',
+    content: ''
+  },
+  sql_login: {
+    method: 'POST', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/autenticar.jsp',
+    content: "login=admin' OR 1=1--&pwd=anything"
+  },
+  xss: {
+    method: 'POST', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/registro.jsp',
+    content: 'nombre=<script>alert(document.cookie)<\/script>&login=x&pwd=y'
+  },
+  cmd: {
+    method: 'GET', host: 'localhost:8080',
+    url: 'http://localhost:8080/tienda1/publico/fichero.jsp?file=../../../etc/passwd;exec+cmd+shell',
+    content: ''
+  }
+};
+
+function loadSample(key) {
+  var s = SAMPLES[key];
+  document.getElementById('method').value  = s.method;
+  document.getElementById('host').value    = s.host;
+  document.getElementById('url').value     = s.url;
+  document.getElementById('content').value = s.content;
+}
+
+function triggerScan() {
+  var el = document.getElementById('scanline');
+  el.classList.remove('active');
+  void el.offsetWidth;
+  el.classList.add('active');
+}
+
+function analyze() {
+  var btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  triggerScan();
+
+  var payload = {
+    method:  document.getElementById('method').value,
+    host:    document.getElementById('host').value,
+    url:     document.getElementById('url').value,
+    content: document.getElementById('content').value
+  };
+
+  fetch('/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Server error ' + r.status);
+    return r.json();
+  })
+  .then(function(data) { renderResult(data); })
+  .catch(function(e)   { alert('Error: ' + e.message); })
+  .finally(function()  { btn.disabled = false; btn.textContent = 'Analyze Request'; });
+}
+
+var TIER_ICONS = { normal: '\u2714', suspicious: '\u26A0', attack: '\u2718' };
+var TIER_SUBS  = {
+  normal:     'No intrusion patterns detected. Request appears legitimate.',
+  suspicious: 'Some unusual patterns found. Manual review recommended.',
+  attack:     'High-confidence attack detected. Request should be blocked.'
+};
+
+function renderResult(data) {
+  var resultEl  = document.getElementById('result');
+  var verdictEl = document.getElementById('verdict');
+  var tier      = data.tier;
+
+  resultEl.style.display = 'block';
+  verdictEl.className    = 'verdict fade-in ' + tier;
+
+  document.getElementById('verdictIcon').textContent = TIER_ICONS[tier];
+  document.getElementById('verdictLabel').textContent = data.label;
+  document.getElementById('verdictSub').textContent   = TIER_SUBS[tier];
+  document.getElementById('tierBadge').textContent    = data.attack_proba + '% attack prob';
+  document.getElementById('pathDisplay').textContent  = data.url_path || '/';
+
+  /* Meter */
+  var pct     = data.attack_proba;
+  var mFill   = document.getElementById('meterFill');
+  mFill.className = 'meter-fill ' + tier;
+  document.getElementById('meterPct').textContent = pct + '%';
+  setTimeout(function() { mFill.style.width = pct + '%'; }, 60);
+
+  /* Conf bars */
+  var barsEl = document.getElementById('confBars');
+  barsEl.innerHTML = '';
+  var barIds = {};
+  Object.keys(data.probabilities).forEach(function(label) {
+    var p   = data.probabilities[label];
+    var cls = (label === 'Normal') ? 'normal' : 'attack';
+    var uid = 'bar_' + label.replace(/\s+/g,'_');
+    barIds[uid] = p;
+    var row = document.createElement('div');
+    row.className = 'conf-row';
+    row.innerHTML =
+      '<div class="conf-label">' + label + '</div>' +
+      '<div class="conf-bar-wrap"><div class="conf-bar ' + cls + '" id="' + uid + '" style="width:0%"></div></div>' +
+      '<div class="conf-pct">' + p + '%</div>';
+    barsEl.appendChild(row);
+  });
+  setTimeout(function() {
+    Object.keys(barIds).forEach(function(uid) {
+      var b = document.getElementById(uid);
+      if (b) b.style.width = barIds[uid] + '%';
+    });
+  }, 80);
+
+  /* Feature grid */
+  var featEl = document.getElementById('featGrid');
+  featEl.innerHTML = '';
+  Object.keys(data.features).forEach(function(k) {
+    var v   = data.features[k];
+    var hot = (k.indexOf('sus') === 0 && v > 0) ||
+              (k === 'is_encoded_url' && v > 0)  ||
+              (k === 'is_encoded_content' && v > 0);
+    var item = document.createElement('div');
+    item.className = 'feat-item' + (hot ? ' hot' : '');
+    var n = document.createElement('span'); n.className = 'feat-name'; n.textContent = k;
+    var val = document.createElement('span'); val.className = 'feat-val'; val.textContent = v;
+    item.appendChild(n); item.appendChild(val);
+    featEl.appendChild(item);
+  });
+
+  resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleFeatures() {
+  document.getElementById('featGrid').classList.toggle('open');
+}
+</script>
+</body>
+</html>
